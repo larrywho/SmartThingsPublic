@@ -164,7 +164,12 @@ def generateEvent(Map results) {
 			def event = [name: name, linkText: linkText, descriptionText: getThermostatDescriptionText(name, value, linkText),
 						 handlerName: name]
 
-			if (name=="temperature" || name=="heatingSetpoint" || name=="coolingSetpoint" ) {
+			if (name=="temperature" ) {
+				def sendValue =  location.temperatureScale == "C"? roundC(convertFtoC(value.toDouble())) : value.toInteger()
+				isChange = true
+				isDisplayed = isChange
+				event << [value: sendValue, unit: temperatureScale, isStateChange: isChange, displayed: isDisplayed]
+			}  else if (name=="heatingSetpoint" || name=="coolingSetpoint" ) {
 				def sendValue =  location.temperatureScale == "C"? roundC(convertFtoC(value.toDouble())) : value.toInteger()
 				isChange = isTemperatureStateChange(device, name, value.toString())
 				isDisplayed = isChange
