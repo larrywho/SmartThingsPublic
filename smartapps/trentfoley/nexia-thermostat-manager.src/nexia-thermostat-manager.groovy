@@ -170,7 +170,7 @@ def scheduleRun() {
     def children = getChildDevices()
     debugEvent("Scheduled run for ${children.size()} devices")
     children.each { child ->
-    	pollChild(child)
+        child.poll()	
    }
 } 
 
