@@ -31,6 +31,7 @@ preferences {
     section("Nexia Auth") {
         input "username", "text", title: "Username"
         input "password", "password", title: "Password"
+	input "schedule", "enum", title: "Update Frequency", options:["Every 1 minute", "Every 5 minutes", "Every 10 minutes", "Every 15 minutes", "Every 30 minutes", "Every 1 hour", "Every 3 hours"]
     }
 }
 
@@ -70,7 +71,7 @@ def updated() {
 }
 
 def initialize() {
-    debugEvent("initialize()")
+    debugEvent("initialize() update frequency ${settings.schedule}")
     
     // Ensure authenticated
     refreshAuthToken()
@@ -115,7 +116,7 @@ def initialize() {
                 dni = getDeviceNetworkId(stat.id)
                 device = addMultipleDevices(dni, stat.name)
             }
-            device.refresh()
+
             return device
         }
 
@@ -123,6 +124,33 @@ def initialize() {
         
         //devices.each { it.refresh() }
     }
+    //insert scheduler for refresh
+    switch(settings.schedule) {
+        case "Every 1 minute":
+            runEvery1Minute(scheduleRun)
+            break
+        case "Every 5 minutes":
+            runEvery5Minutes(scheduleRun)
+            break
+        case "Every 10 minutes":
+            runEvery10Minutes(scheduleRun)
+            break
+        case "Every 15 minutes":
+            runEvery15Minutes(scheduleRun)
+            break
+        case "Every 30 minutes":
+            runEvery30Minutes(scheduleRun)
+            break
+        case "Every 1 hour":
+            runEvery1Hour(scheduleRun)
+            break
+        case "Every 3 hours":
+            runEvery3Hours(scheduleRun)
+            break
+        default:
+            runEvery3Hours(scheduleRun)
+    }
+ 
 }
 
 private def addMultipleDevices(dni, statname) {
@@ -133,8 +161,18 @@ private def addMultipleDevices(dni, statname) {
     } else {
         debugEvent("Found already existing ${device.displayName} with device network id: ${dni}")
     }
+    device.refresh()
+   
     return device
 }
+
+def scheduleRun() {
+    def children = getChildDevices()
+    debugEvent("Scheduled run for ${children.size()} devices")
+    children.each { child ->
+    	pollChild(child)
+   }
+} 
 
 
 private searchForClimate(httpNode) {
