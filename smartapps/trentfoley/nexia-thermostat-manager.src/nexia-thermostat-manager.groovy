@@ -178,10 +178,10 @@ def scheduleRun() {
 private searchForClimate(httpNode) {
     if(httpNode != null && !(httpNode instanceof String)) {
         if(httpNode.attributes()["href"] != null) {
-            if(httpNode.attributes()["href"].matches("(?i).*climate/index.*"))
+            if(httpNode.attributes()["href"].matches("(?i).*climate"))
             {
-                state.thermostatsPath = httpNode.attributes()["href"].replace("climate/index", "xxl_thermostats")
-                state.zonesPath = httpNode.attributes()["href"].replace("climate/index", "xxl_zones")
+                state.thermostatsPath = httpNode.attributes()["href"].replace("climate", "xxl_thermostats")
+                state.zonesPath = httpNode.attributes()["href"].replace("climate", "xxl_zones")
                 debugEvent("ThermostatsPath = ${state.thermostatsPath}")
             }
             }
@@ -229,11 +229,27 @@ private updateCookies(groovyx.net.http.HttpResponseDecorator response) {
 
 def getDefaultHeaders() {
     def headers = [
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'en-US,en,q=0.8',
-        'Cache-Control': 'max-age=0',
+        'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'
+    ]
+
+    def cookieString = state.cookies?.collect { entry -> entry.value }?.join('; ');
+    if (cookieString) { headers.Cookie = cookieString }
+    return headers
+}
+
+def getDefaultHeadersCSRF() {
+    def headers = [
+        'Accept': 'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-US,en,q=0.8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-CSRF-Token': state.AuthToken,
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'
     ]
 
@@ -386,7 +402,7 @@ private updateZone(zone, updateType) {
     def requestParams = [
         uri: serverUrl,
         path: "${state.zonesPath}/${zone.id}/${updateType}",
-        headers: defaultHeaders,
+        headers: defaultHeadersCSRF,
         body: zone
     ]
 
@@ -405,7 +421,7 @@ private updateThermostat(stat, updateType) {
     def requestParams = [
         uri: serverUrl,
         path: "${state.thermostatsPath}/${stat.id}/${updateType}",
-        headers: defaultHeaders,
+        headers: defaultHeadersCSRF,
         body: stat
     ]
 
