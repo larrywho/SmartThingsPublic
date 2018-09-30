@@ -31,6 +31,7 @@ preferences {
     section("Nexia Auth") {
         input "username", "text", title: "Username"
         input "password", "password", title: "Password"
+	input "schedule", "enum", title: "Update Frequency", options:["Every 1 minute", "Every 5 minutes", "Every 10 minutes", "Every 15 minutes", "Every 30 minutes", "Every 1 hour", "Every 3 hours"]
     }
 }
 
@@ -70,7 +71,7 @@ def updated() {
 }
 
 def initialize() {
-    debugEvent("initialize()")
+    debugEvent("initialize() update frequency ${settings.schedule}")
     
     // Ensure authenticated
     refreshAuthToken()
@@ -115,7 +116,7 @@ def initialize() {
                 dni = getDeviceNetworkId(stat.id)
                 device = addMultipleDevices(dni, stat.name)
             }
-            device.refresh()
+
             return device
         }
 
@@ -123,6 +124,33 @@ def initialize() {
         
         //devices.each { it.refresh() }
     }
+    //insert scheduler for refresh
+    switch(settings.schedule) {
+        case "Every 1 minute":
+            runEvery1Minute(scheduleRun)
+            break
+        case "Every 5 minutes":
+            runEvery5Minutes(scheduleRun)
+            break
+        case "Every 10 minutes":
+            runEvery10Minutes(scheduleRun)
+            break
+        case "Every 15 minutes":
+            runEvery15Minutes(scheduleRun)
+            break
+        case "Every 30 minutes":
+            runEvery30Minutes(scheduleRun)
+            break
+        case "Every 1 hour":
+            runEvery1Hour(scheduleRun)
+            break
+        case "Every 3 hours":
+            runEvery3Hours(scheduleRun)
+            break
+        default:
+            runEvery3Hours(scheduleRun)
+    }
+ 
 }
 
 private def addMultipleDevices(dni, statname) {
@@ -133,17 +161,27 @@ private def addMultipleDevices(dni, statname) {
     } else {
         debugEvent("Found already existing ${device.displayName} with device network id: ${dni}")
     }
+    device.refresh()
+   
     return device
 }
+
+def scheduleRun() {
+    def children = getChildDevices()
+    debugEvent("Scheduled run for ${children.size()} devices")
+    children.each { child ->
+        child.poll()	
+   }
+} 
 
 
 private searchForClimate(httpNode) {
     if(httpNode != null && !(httpNode instanceof String)) {
         if(httpNode.attributes()["href"] != null) {
-            if(httpNode.attributes()["href"].matches("(?i).*climate/index.*"))
+            if(httpNode.attributes()["href"].matches("(?i).*climate"))
             {
-                state.thermostatsPath = httpNode.attributes()["href"].replace("climate/index", "xxl_thermostats")
-                state.zonesPath = httpNode.attributes()["href"].replace("climate/index", "xxl_zones")
+                state.thermostatsPath = httpNode.attributes()["href"].replace("climate", "xxl_thermostats")
+                state.zonesPath = httpNode.attributes()["href"].replace("climate", "xxl_zones")
                 debugEvent("ThermostatsPath = ${state.thermostatsPath}")
             }
             }
@@ -191,11 +229,27 @@ private updateCookies(groovyx.net.http.HttpResponseDecorator response) {
 
 def getDefaultHeaders() {
     def headers = [
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'en-US,en,q=0.8',
-        'Cache-Control': 'max-age=0',
+        'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'
+    ]
+
+    def cookieString = state.cookies?.collect { entry -> entry.value }?.join('; ');
+    if (cookieString) { headers.Cookie = cookieString }
+    return headers
+}
+
+def getDefaultHeadersCSRF() {
+    def headers = [
+        'Accept': 'text/html,application/xhtml+xml,application/json,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-US,en,q=0.8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-CSRF-Token': state.AuthToken,
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36'
     ]
 
@@ -348,7 +402,7 @@ private updateZone(zone, updateType) {
     def requestParams = [
         uri: serverUrl,
         path: "${state.zonesPath}/${zone.id}/${updateType}",
-        headers: defaultHeaders,
+        headers: defaultHeadersCSRF,
         body: zone
     ]
 
@@ -367,7 +421,7 @@ private updateThermostat(stat, updateType) {
     def requestParams = [
         uri: serverUrl,
         path: "${state.thermostatsPath}/${stat.id}/${updateType}",
-        headers: defaultHeaders,
+        headers: defaultHeadersCSRF,
         body: stat
     ]
 
